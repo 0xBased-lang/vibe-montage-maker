@@ -5,7 +5,6 @@ import subprocess
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
-SRC_DIR = BASE_DIR / "src"
 
 # Defaults
 DEFAULT_BPM = 120
@@ -13,7 +12,10 @@ DEFAULT_COUNT = 10
 
 
 def run_cmd(cmd, env=None):
-    result = subprocess.run(cmd, shell=True, env=env)
+    merged_env = os.environ.copy()
+    if env:
+        merged_env.update(env)
+    result = subprocess.run(cmd, shell=True, env=merged_env)
     if result.returncode != 0:
         sys.exit(result.returncode)
 
@@ -23,12 +25,17 @@ def ensure_dirs():
         p.mkdir(parents=True, exist_ok=True)
 
 
+def safe_name(text: str) -> str:
+    return text.strip().replace(" ", "_").lower()
+
+
 def main():
     parser = argparse.ArgumentParser(description="One-shot pipeline: ingest -> search -> (optional) MP4 -> (optional) CapCut draft.")
-    parser.add_argument("--url", required=True, help="YouTube URL to ingest")
+    parser.add_argument("--url", required=True, help="Video URL to ingest (YouTube/TikTok/Instagram/etc. via yt-dlp)")
     parser.add_argument("--vibe", required=True, help="Vibe text for search")
     parser.add_argument("--count", type=int, default=DEFAULT_COUNT, help="How many screenshots to export (default 10)")
     parser.add_argument("--bpm", type=int, default=DEFAULT_BPM, help="BPM for click track and durations (default 120)")
+    parser.add_argument("--cookies", default=None, help="Cookies file for yt-dlp (useful for Instagram/TikTok gated content)")
     parser.add_argument("--no-mp4", action="store_true", help="Skip MP4 montage")
     parser.add_argument("--draft", action="store_true", help="Also build a CapCut draft via CapCutAPI")
     parser.add_argument("--api-base", default=os.environ.get("CAPCUT_API_BASE", "http://127.0.0.1:3000"), help="CapCutAPI base URL")
@@ -38,10 +45,15 @@ def main():
     args = parser.parse_args()
 
     ensure_dirs()
+    vibe_safe = safe_name(args.vibe)
 
     # 1) Ingest
     print("[1/4] Ingesting video...")
-    run_cmd(f"cd {BASE_DIR} && printf '{args.url}\n' | python src/ingest.py")
+    ingest_env = {}
+    if args.cookies:
+        ingest_env["COOKIES_FILE"] = str(Path(args.cookies).resolve())
+        print(f"Using cookies file for yt-dlp: {ingest_env['COOKIES_FILE']}")
+    run_cmd(f"cd {BASE_DIR} && printf '{args.url}\n' | python src/ingest.py", env=ingest_env)
 
     # 2) Search/export
     print("[2/4] Exporting vibe frames...")
@@ -53,15 +65,15 @@ def main():
     mp4_path = None
     if not args.no_mp4:
         print("[3/4] Building MP4 montage...")
-        mp4_path = BASE_DIR / "renders" / f"{args.vibe.replace(' ', '_')}.mp4"
-        run_cmd(f"cd {BASE_DIR} && python src/make_movie.py capcut_ready/{args.vibe.replace(' ', '_')} --out {mp4_path}")
+        mp4_path = BASE_DIR / "renders" / f"{vibe_safe}.mp4"
+        run_cmd(f"cd {BASE_DIR} && python src/make_movie.py capcut_ready/{vibe_safe} --out {mp4_path}")
 
     # 4) CapCut draft (optional)
     draft_info = None
     if args.draft:
         print("[4/4] Building CapCut draft via CapCutAPI...")
         draft_cmd = (
-            f"cd {BASE_DIR} && python src/capcut_draft.py {args.vibe.replace(' ', '_')} "
+            f"cd {BASE_DIR} && python src/capcut_draft.py {vibe_safe} "
             f"--api-base {args.api_base} --fps {args.fps} --ratio {args.ratio}"
         )
         if args.audio:
@@ -70,7 +82,6 @@ def main():
         draft_info = "(see capcut_draft.py output for draft path)"
 
     print("\n=== Summary ===")
-    vibe_safe = args.vibe.replace(" ", "_")
     print(f"Vibe: {args.vibe} (folder: {vibe_safe})")
     print(f"Ranked: organized_screenshots/{vibe_safe}/")
     print(f"CapCut kit: capcut_ready/{vibe_safe}/ (zip inside)")

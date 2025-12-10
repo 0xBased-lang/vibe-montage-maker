@@ -1,6 +1,6 @@
 # Vibe Montage Maker
 
-Eye + Brain MVP for collecting high-quality screenshots from YouTube videos and curating them by “vibe.” Outputs CapCut-ready kits, quick MP4 montages, and (optionally) prebuilt drafts via CapCutAPI.
+Eye + Brain MVP for collecting high-quality screenshots from online videos (YouTube/TikTok/Instagram/others via yt-dlp) and curating them by “vibe.” Outputs CapCut-ready kits, quick MP4 montages, and (optionally) prebuilt drafts via CapCutAPI.
 
 ## What it does
 - **Eye**: Download video (720p for speed), detect scene cuts (PySceneDetect), extract one mid-scene frame per cut to avoid blur/fades.
@@ -11,42 +11,52 @@ Eye + Brain MVP for collecting high-quality screenshots from YouTube videos and 
 ```
 .
 ├── requirements.txt
+├── run.py               # One-shot pipeline runner (ingest -> export -> mp4 -> optional draft)
 ├── src
-│   ├── ingest.py          # Eye – download, scene detect, embed into vector DB
-│   ├── search.py          # Brain UI – text search, export kits
-│   ├── capcut_draft.py    # Optional – send kits to CapCutAPI, build draft
-│   └── make_movie.py      # Optional – build quick MP4 montage from frames
-├── downloads/             # auto-created; raw video files (git-ignored)
-├── frames/                # auto-created; extracted frames (git-ignored)
-├── chroma_db/             # auto-created; vector database (git-ignored)
+│   ├── ingest.py        # Eye – download, scene detect, embed into vector DB (supports cookies file)
+│   ├── search.py        # Brain UI – text search, export kits
+│   ├── capcut_draft.py  # Optional – send kits to CapCutAPI, build draft
+│   └── make_movie.py    # Optional – build quick MP4 montage from frames
+├── downloads/           # auto-created; raw video files (git-ignored)
+├── frames/              # auto-created; extracted frames (git-ignored)
+├── chroma_db/           # auto-created; vector database (git-ignored)
 ├── organized_screenshots/ # ranked exports per vibe (git-ignored)
-├── capcut_ready/          # CapCut kits (sequential assets, CSV, click track, zip; git-ignored)
-└── renders/               # optional MP4 outputs (git-ignored)
+├── capcut_ready/        # CapCut kits (sequential assets, CSV, click track, zip; git-ignored)
+└── renders/             # optional MP4 outputs (git-ignored)
 ```
 
 ## Requirements
 - Python 3.10–3.13 (tested on macOS).
-- `pip install -r requirements.txt` (includes yt-dlp, scenedetect[opencv], transformers, torch, chromadb, requests, moviepy, etc.).
-- CapCut desktop/mobile for manual import; CapCutAPI (optional) for draft automation; ffmpeg/avlib available for moviepy (typically present on macOS or via ffmpeg install).
+- `pip install -r requirements.txt` (yt-dlp, scenedetect[opencv], transformers, torch, chromadb, requests, moviepy, etc.).
+- ffmpeg/avlib available for moviepy (install via `brew install ffmpeg` on macOS if missing).
+- CapCut desktop/mobile for manual import; CapCutAPI (optional) for draft automation.
 
-## Quick start (non-technical friendly)
+## One-shot (recommended)
 ```bash
 git clone https://github.com/0xBased-lang/vibe-montage-maker
 cd vibe-montage-maker
 pip install -r requirements.txt
 
-# 1) Ingest a video
-python src/ingest.py
-# paste a YouTube URL when prompted
+python run.py \
+  --url "<VIDEO_URL>" \
+  --vibe "neon city" \
+  --count 8 \
+  --bpm 120 \
+  [--cookies /path/to/cookies.txt] \
+  [--draft --api-base http://127.0.0.1:3000]
+```
+- Works with YouTube/TikTok/Instagram URLs (yt-dlp). Use `--cookies` for IG or gated content.
+- Outputs:
+  - `organized_screenshots/<vibe>/` (ranked)
+  - `capcut_ready/<vibe>/` (sequential kit + zip)
+  - `renders/<vibe>.mp4` (montage) unless `--no-mp4`
+  - Optional CapCut draft via CapCutAPI if `--draft` is set
 
-# 2) Export a vibe
-python src/search.py
-# describe a vibe (e.g., "neon city"), choose how many results, then BPM (default 120)
-# outputs kits under organized_screenshots/<vibe>/ and capcut_ready/<vibe>/
-
-# 3) (Optional) Make a quick MP4 montage
-python src/make_movie.py capcut_ready/<vibe>
-# uses beat duration from capcut_manifest.json if present; otherwise defaults to 1.0s
+## Manual flow (if you prefer prompts)
+```bash
+python src/ingest.py      # paste URL (supports cookies via COOKIES_FILE env)
+python src/search.py      # type vibe, count, BPM
+python src/make_movie.py capcut_ready/<vibe>   # optional MP4
 ```
 
 ## What you get per vibe
@@ -62,8 +72,7 @@ In `capcut_ready/<vibe>/`:
 - `<vibe>_capcut.zip`: archive of the entire kit for sharing.
 
 Optional MP4 preview:
-- Run `python src/make_movie.py capcut_ready/<vibe>` to assemble an H.264 MP4 at 24 fps (saved to `renders/<vibe>.mp4`).
-- You can override per-frame duration with `--duration` or attach your own audio via `--audio`.
+- `python src/make_movie.py capcut_ready/<vibe>` → H.264 MP4 at 24 fps (default per-frame duration from manifest beat duration if present; otherwise 1.0s). Override with `--duration`; attach audio with `--audio`.
 
 ## Importing into CapCut (manual, safest)
 1) Open CapCut.
@@ -75,8 +84,7 @@ Optional MP4 preview:
 Prereq: run CapCutAPI (https://github.com/sun-guannan/CapCutAPI) locally; default base `http://127.0.0.1:3000`.
 Command:
 ```bash
-# after ingest + search
-python src/capcut_draft.py <vibe> --api-base http://127.0.0.1:3000
+python src/capcut_draft.py <vibe> --api-base http://127.0.0.1:3000 [--audio file] [--ratio 9:16] [--fps 30]
 ```
 What it does:
 - Calls CapCutAPI endpoints (`create_draft`, `add_video`, `add_audio`, `save_draft`).
@@ -85,19 +93,22 @@ What it does:
 - Outputs a `dfd_*` draft folder; copy it into your CapCut/Jianying drafts directory and open in CapCut.
 See `docs/CAPCUT_API_USAGE.md` for endpoint assumptions and troubleshooting.
 
+## Cookies (Instagram/TikTok gated content)
+- Use `--cookies /path/to/cookies.txt` with `run.py`, or set `COOKIES_FILE` env before running `src/ingest.py`.
+- Format: a standard Netscape cookies file exported from your browser.
+
 ## Defaults and behavior
-- Ingestion resolution: 720p (fast, sufficient for frame selection).
-- Scene detection: PySceneDetect, threshold ~27, mid-scene frame extraction for stability.
-- BPM default: 120 (adjust at export prompt).
-- Movie assembly: H.264 MP4, 24 fps, per-frame duration from manifest beat duration if available; otherwise 1.0s.
+- Ingestion: 720p; PySceneDetect threshold ~27; mid-scene frames.
+- BPM: default 120 (prompt overridable).
+- MP4: H.264, 24 fps, per-frame duration from manifest or 1.0s fallback.
 - Data stays local: heavy folders are .gitignored (`downloads/`, `frames/`, `chroma_db/`, `organized_screenshots/`, `capcut_ready/`, `renders/`).
 
 ## Troubleshooting
-- Missing matches: broaden the vibe text or request more results.
-- Slow downloads: YouTube throttling; try again or choose a shorter video.
-- CapCutAPI errors: ensure server is running and `--api-base` matches; see `docs/CAPCUT_API_USAGE.md`.
-- Paths: prefer absolute or simple paths when using CapCutAPI to avoid resolution issues.
-- Movie assembly: ensure ffmpeg is available; if not, install it (`brew install ffmpeg` on macOS).
+- No matches or few results: broaden vibe text or request more results.
+- Slow downloads: YouTube/TikTok throttling; try again or shorter video.
+- CapCutAPI errors: ensure server reachable at `--api-base`; see `docs/CAPCUT_API_USAGE.md`.
+- ffmpeg missing: install (`brew install ffmpeg` on macOS) for moviepy.
+- Paths: when using CapCutAPI, prefer absolute/simple paths; pass cookies for IG if required.
 
 ## Roadmap
 - Add “Flow” phase (color/brightness sorting, beat-synced montage assembly).

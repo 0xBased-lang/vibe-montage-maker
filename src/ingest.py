@@ -13,11 +13,15 @@ DOWNLOAD_DIR = os.path.join(BASE_DIR, "downloads")
 FRAMES_DIR = os.path.join(BASE_DIR, "frames")
 DB_PATH = os.path.join(BASE_DIR, "chroma_db")
 
+COOKIES_FILE = os.environ.get("COOKIES_FILE")  # optional: for IG/TikTok gated content
+
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 os.makedirs(FRAMES_DIR, exist_ok=True)
 
+
 class VibeEngine:
     """Handles embedding of frames into the semantic vector DB."""
+
     def __init__(self):
         print("Loading SigLIP model (google/siglip-base-patch16-224)...")
         self.model_name = "google/siglip-base-patch16-224"
@@ -52,6 +56,7 @@ class VibeEngine:
         )
         print(f"Indexed \"{os.path.basename(frame_path)}\"")
 
+
 def download_video(url):
     print(f"Downloading: {url}")
     ydl_opts = {
@@ -59,9 +64,13 @@ def download_video(url):
         "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
         "noplaylist": True,
     }
+    if COOKIES_FILE:
+        ydl_opts["cookiefile"] = COOKIES_FILE
+        print(f"Using cookies file: {COOKIES_FILE}")
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
     return os.path.join(DOWNLOAD_DIR, f"{info['id']}.{info['ext']}"), info["id"]
+
 
 def extract_scene_frames(video_path, video_id):
     print(f"Detecting scenes in {os.path.basename(video_path)}")
@@ -92,9 +101,10 @@ def extract_scene_frames(video_path, video_id):
     video_manager.release()
     return frames
 
+
 def main():
     engine = VibeEngine()
-    url = input("Enter YouTube URL to ingest: ").strip()
+    url = input("Enter video URL (YouTube/TikTok/Instagram): ").strip()
     if not url:
         print("No URL provided. Exiting.")
         return
@@ -107,6 +117,7 @@ def main():
         print("Ingestion complete. Frames ready for searching.")
     except Exception as exc:
         print(f"[ERROR] {exc}")
+
 
 if __name__ == "__main__":
     main()
