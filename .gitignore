@@ -5,6 +5,7 @@ frames/
 organized_screenshots/
 chroma_db/
 capcut_ready/
+renders/
 test_write.txt
 *.log
 *.webm
