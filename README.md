@@ -43,6 +43,12 @@ Eye + Brain MVP for collecting high-quality screenshots from YouTube videos and 
    Outputs land in:
    - `organized_screenshots/<vibe>/` for reviewing picks.
    - `capcut_ready/<vibe>/` with sequential assets, metadata, script stub, click-track, manifest, plus `<vibe>_capcut.zip`.
+4. **(Optional) Auto-build a CapCut draft with CapCutAPI**
+   ```bash
+   # run CapCutAPI separately (see docs/CAPCUT_API_USAGE.md)
+   python src/capcut_draft.py <vibe> --api-base http://127.0.0.1:3000
+   ```
+   This calls CapCutAPI to assemble clips + audio into a draft folder (`dfd_*`). Copy that draft into CapCut/Jianying drafts and open it directly.
 
 ## CapCut deliverables
 Every vibe export now includes:
@@ -52,6 +58,10 @@ Every vibe export now includes:
 - `capcut_manifest.json` containing BPM, beat duration, suggested clip durations, and metadata for each asset.
 - `click_track.wav` metronome audio (configurable BPM) for beat syncing.
 - `<vibe>_capcut.zip` archive (stored in `capcut_ready/`) to share with collaborators who only need CapCut assets.
+
+### CapCutAPI automation (draft builder)
+- Use `src/capcut_draft.py` to send the above kit to CapCutAPI and auto-create a ready-to-open draft.
+- See `docs/CAPCUT_API_USAGE.md` for endpoint assumptions and setup.
 
 ## Notes
 - Only 720p video streams are downloaded for speed; original scenes can be redownloaded later if needed.

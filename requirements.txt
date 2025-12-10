@@ -6,3 +6,4 @@ torch
 pillow
 chromadb
 numpy
+requests
