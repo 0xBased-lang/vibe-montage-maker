@@ -1,74 +1,94 @@
 # Vibe Montage Maker
 
-Eye + Brain MVP for collecting high-quality screenshots from YouTube videos and curating them by "vibe".
+Eye + Brain MVP for collecting high-quality screenshots from YouTube videos and curating them by “vibe.” Outputs CapCut-ready kits and (optionally) prebuilt drafts via CapCutAPI.
 
-## Features
-- **Scene-aware Screenshot Extraction**: downloads a video, finds every hard scene cut with PySceneDetect, and saves one stable frame per scene.
-- **Semantic Indexing**: each frame is embedded with Google's SigLIP model, stored in a local ChromaDB vector database.
-- **Natural-Language Retrieval**: describe any vibe ("neon city rain", "serene countryside"), and the system exports matching frames into an organized folder, ready for creative use.
-- **CapCut-Ready Packages**: each vibe query now outputs sequential assets, metadata, click-track audio, and a ready-to-share ZIP so editors can drop everything directly into CapCut.
+## What it does
+- **Eye**: Download video (720p for speed), detect scene cuts (PySceneDetect), extract one mid-scene frame per cut to avoid blur/fades.
+- **Brain**: Embed frames with Google SigLIP (via Transformers) and store vectors in ChromaDB for semantic (“vibe”) search.
+- **Exports**: Ranked and sequential assets, metadata, click-track audio, script stub, manifest, and a shareable zip. Optional automation to build a CapCut draft via CapCutAPI.
 
-## Project Structure
+## Project structure
 ```
 .
 ├── requirements.txt
 ├── src
-│   ├── ingest.py        # "The Eye" – download, scene detect, embed
-│   └── search.py        # "The Brain UI" – text search & export
-├── downloads/           # auto-created; raw video files (git-ignored)
-├── frames/              # auto-created; extracted frames (git-ignored)
-├── chroma_db/           # auto-created; vector database (git-ignored)
+│   ├── ingest.py          # Eye – download, scene detect, embed into vector DB
+│   ├── search.py          # Brain UI – text search, export kits
+│   └── capcut_draft.py    # Optional – send kits to CapCutAPI, build draft
+├── downloads/             # auto-created; raw video files (git-ignored)
+├── frames/                # auto-created; extracted frames (git-ignored)
+├── chroma_db/             # auto-created; vector database (git-ignored)
 ├── organized_screenshots/ # ranked exports per vibe (git-ignored)
-└── capcut_ready/        # CapCut kits (sequential assets, CSV, click track, zip)
+└── capcut_ready/          # CapCut kits (sequential assets, CSV, click track, zip; git-ignored)
 ```
 
-## Quickstart
-1. **Install deps**
-   ```bash
-   git clone https://github.com/0xBased-lang/vibe-montage-maker
-   cd vibe-montage-maker
-   pip install -r requirements.txt
-   ```
-2. **Ingest a video**
-   ```bash
-   python src/ingest.py
-   # paste a YouTube URL when prompted
-   ```
-   This populates `downloads/`, `frames/`, and `chroma_db/`.
-3. **Search & export curated frames**
-   ```bash
-   python src/search.py
-   # describe any vibe (e.g., "neon city"), choose how many results + BPM
-   ```
-   Outputs land in:
-   - `organized_screenshots/<vibe>/` for reviewing picks.
-   - `capcut_ready/<vibe>/` with sequential assets, metadata, script stub, click-track, manifest, plus `<vibe>_capcut.zip`.
-4. **(Optional) Auto-build a CapCut draft with CapCutAPI**
-   ```bash
-   # run CapCutAPI separately (see docs/CAPCUT_API_USAGE.md)
-   python src/capcut_draft.py <vibe> --api-base http://127.0.0.1:3000
-   ```
-   This calls CapCutAPI to assemble clips + audio into a draft folder (`dfd_*`). Copy that draft into CapCut/Jianying drafts and open it directly.
+## Requirements
+- Python 3.10–3.13 (tested on macOS).
+- `pip install -r requirements.txt` (yt-dlp, scenedetect[opencv], transformers, torch, chromadb, requests, etc.).
+- CapCut desktop/mobile for manual import; CapCutAPI (optional) for draft automation.
 
-## CapCut deliverables
-Every vibe export now includes:
-- `0001.jpg`, `0002.jpg`, ... sequential frames for immediate timeline drop.
-- `shots.csv` with rank, similarity score, source video ID, and timestamps.
-- `script_stub.md` for narration/caption notes per shot.
-- `capcut_manifest.json` containing BPM, beat duration, suggested clip durations, and metadata for each asset.
-- `click_track.wav` metronome audio (configurable BPM) for beat syncing.
-- `<vibe>_capcut.zip` archive (stored in `capcut_ready/`) to share with collaborators who only need CapCut assets.
+## Quick start (non-technical friendly)
+```bash
+git clone https://github.com/0xBased-lang/vibe-montage-maker
+cd vibe-montage-maker
+pip install -r requirements.txt
 
-### CapCutAPI automation (draft builder)
-- Use `src/capcut_draft.py` to send the above kit to CapCutAPI and auto-create a ready-to-open draft.
-- See `docs/CAPCUT_API_USAGE.md` for endpoint assumptions and setup.
+# 1) Ingest a video
+python src/ingest.py
+# paste a YouTube URL when prompted
 
-## Notes
-- Only 720p video streams are downloaded for speed; original scenes can be redownloaded later if needed.
-- Frame extraction grabs mid-scene frames to avoid blurry cuts/fades.
-- All heavy artifacts are .gitignored; each user maintains their own local cache.
+# 2) Export a vibe
+python src/search.py
+# describe a vibe (e.g., "neon city"), choose how many results, then BPM (default 120)
+# outputs kits under organized_screenshots/<vibe>/ and capcut_ready/<vibe>/
+```
+
+## What you get per vibe
+In `organized_screenshots/<vibe>/`:
+- Ranked copies: `01_*.jpg`, `02_*.jpg`, …
+
+In `capcut_ready/<vibe>/`:
+- Sequential frames: `0001.jpg`, `0002.jpg`, …
+- `shots.csv`: rank, similarity score, source video ID, timestamp, original path.
+- `script_stub.md`: notes for narration/captions per shot.
+- `capcut_manifest.json`: BPM, beat duration, suggested clip durations, source metadata.
+- `click_track.wav`: metronome audio (BPM you chose) for beat alignment.
+- `<vibe>_capcut.zip`: archive of the entire kit for sharing.
+
+## Importing into CapCut (manual, safest)
+1) Open CapCut.
+2) Drag `capcut_ready/<vibe>/` (or unzip and drag) into the media bin.
+3) Drop `0001.jpg`, `0002.jpg`, … into the timeline; optionally drop `click_track.wav` to align beats.
+4) Use `shots.csv` / `script_stub.md` for pacing and voiceover planning.
+
+## Optional: auto-build a CapCut draft (CapCutAPI)
+Prereq: run CapCutAPI (https://github.com/sun-guannan/CapCutAPI) locally; default base `http://127.0.0.1:3000`.
+Command:
+```bash
+# after ingest + search
+python src/capcut_draft.py <vibe> --api-base http://127.0.0.1:3000
+```
+What it does:
+- Calls CapCutAPI endpoints (`create_draft`, `add_video`, `add_audio`, `save_draft`).
+- Places each sequential frame at beat-aligned duration from `capcut_manifest.json`.
+- Adds `click_track.wav` across the full timeline (if present).
+- Outputs a `dfd_*` draft folder; copy it into your CapCut/Jianying drafts directory and open in CapCut.
+See `docs/CAPCUT_API_USAGE.md` for endpoint assumptions and troubleshooting.
+
+## Defaults and behavior
+- Ingestion resolution: 720p (fast, sufficient for frame selection).
+- Scene detection: PySceneDetect, threshold ~27, mid-scene frame extraction for stability.
+- BPM default: 120 (adjust at export prompt).
+- Data stays local: heavy folders are .gitignored (`downloads/`, `frames/`, `chroma_db/`, `organized_screenshots/`, `capcut_ready/`).
+
+## Troubleshooting
+- Missing matches: broaden the vibe text or request more results.
+- Slow downloads: network throttling from YouTube; try again or use a shorter video.
+- CapCutAPI errors: ensure server is running and `--api-base` matches; see `docs/CAPCUT_API_USAGE.md`.
+- Paths: prefer absolute or simple paths when using CapCutAPI to avoid resolution issues.
 
 ## Roadmap
-- Add "Flow" phase (color/brightness sorting, beat-synced montage assembly)
-- Support batch ingestion for playlists
-- Auto-generate CapCut `.capcutproj` templates (see `docs/CAPCUT_TEMPLATE_PLAN.md`)
+- Add “Flow” phase (color/brightness sorting, beat-synced montage assembly).
+- Batch ingestion for playlists.
+- Auto-generate CapCut `.capcutproj` templates (see `docs/CAPCUT_TEMPLATE_PLAN.md`).
+- Optional: swap click-track with chosen soundtrack automatically.
