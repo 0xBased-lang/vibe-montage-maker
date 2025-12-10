@@ -1,0 +1,8 @@
+yt-dlp
+scenedetect[opencv]
+opencv-python
+transformers
+torch
+pillow
+chromadb
+numpy

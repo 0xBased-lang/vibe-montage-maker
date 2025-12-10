@@ -1,0 +1,10 @@
+__pycache__/
+.DS_Store
+downloads/
+frames/
+organized_screenshots/
+chroma_db/
+test_write.txt
+*.log
+*.webm
+*.mp4
