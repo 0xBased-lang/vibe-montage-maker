@@ -85,22 +85,34 @@ Extract the most interesting clips from a video using multimodal analysis:
 ```bash
 python run.py --url "<URL>" --vibe "action" --highlights --highlight-count 5
 # or standalone:
-python src/highlight.py downloads/<video>.mp4 "exciting action" 5
+python src/highlight.py downloads/<video>.mp4 "exciting action" 5 --duration 20 --max-duration 30
 ```
 
 How it works:
 - **Audio peaks (40%)**: Detects loud/energetic moments using ffmpeg + numpy
 - **Scene changes (30%)**: Quick cuts often indicate action/transitions
 - **Semantic similarity (30%)**: Matches frames to your query via SigLIP
+- **Smart expansion**: Merges adjacent scenes into longer clips (10-30s) while audio stays active
+- **Multi-category scoring**: Scores against 5 categories (action, funny, dramatic, key_moment, reaction)
+- **Temporal diversity**: Auto-spreads highlights across video timeline (enabled for >5 min videos)
+- **Dynamic count**: Auto-scales highlights for long videos (~30 for 45-min, ~60 for 2-hour videos)
 
 Output in `highlights/<video_id>/`:
-- `highlight_001.mp4`, `highlight_002.mp4`, ... (extracted clips)
-- `highlights_manifest.json` (metadata with scores and timestamps)
+- `highlight_001_action.mp4`, `highlight_002_dramatic.mp4`, ... (category-tagged clips)
+- `highlights_manifest.json` (metadata with scores, categories, clusters, and diversity info)
 
 Options:
 - `--highlights`: Enable highlight extraction in the pipeline
-- `--highlight-count N`: Number of clips to extract (default 5)
+- `--highlight-count N`: Base number of clips (default 5, auto-scales for long videos)
 - `--highlight-query "text"`: Custom query (defaults to `--vibe`)
+- `--highlight-duration N`: Target clip duration in seconds (default 20)
+- `--highlight-max N`: Maximum clip duration in seconds (default 30)
+- `--no-expand`: Disable segment expansion (use single scenes, 2-3s clips)
+- `--dynamic-count`: Force auto-scale highlight count based on video length
+- `--min-score N`: Filter highlights below quality threshold (0-1)
+- `--categories "action,funny,rage"`: Custom category queries
+- `--no-categorize`: Disable multi-category scoring
+- `--no-spread`: Disable temporal diversity optimization
 
 ## Importing into CapCut (manual, safest)
 1) Open CapCut.

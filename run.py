@@ -47,6 +47,15 @@ def main():
     parser.add_argument("--highlights", action="store_true", help="Extract highlight video clips (auto-detect interesting moments)")
     parser.add_argument("--highlight-count", type=int, default=DEFAULT_HIGHLIGHTS, help="Number of highlight clips to extract (default 5)")
     parser.add_argument("--highlight-query", default=None, help="Custom query for highlight detection (default: uses --vibe)")
+    parser.add_argument("--highlight-duration", type=int, default=20, help="Target highlight duration in seconds (default 20)")
+    parser.add_argument("--highlight-max", type=int, default=30, help="Maximum highlight duration in seconds (default 30)")
+    parser.add_argument("--no-expand", action="store_true", help="Disable segment expansion (use single scenes)")
+    # NEW: Category and diversity options
+    parser.add_argument("--dynamic-count", action="store_true", help="Auto-scale highlight count based on video length")
+    parser.add_argument("--min-score", type=float, default=0.0, help="Filter highlights below this quality threshold (0-1)")
+    parser.add_argument("--no-categorize", action="store_true", help="Disable multi-category scoring")
+    parser.add_argument("--categories", type=str, default=None, help="Custom categories (comma-separated, e.g., 'action,funny,dramatic')")
+    parser.add_argument("--no-spread", action="store_true", help="Disable temporal diversity")
     args = parser.parse_args()
 
     ensure_dirs()
@@ -86,9 +95,28 @@ def main():
         print(f"[{step}/{total_steps}] Extracting highlight clips...")
         if downloaded_video and downloaded_video.exists():
             highlight_query = args.highlight_query or args.vibe
+
+            # Build flags
+            flags = []
+            flags.append(f"--duration {args.highlight_duration}")
+            flags.append(f"--max-duration {args.highlight_max}")
+            if args.no_expand:
+                flags.append("--no-expand")
+            if args.dynamic_count:
+                flags.append("--dynamic-count")
+            if args.min_score > 0:
+                flags.append(f"--min-score {args.min_score}")
+            if args.no_categorize:
+                flags.append("--no-categorize")
+            if args.categories:
+                flags.append(f'--categories "{args.categories}"')
+            if args.no_spread:
+                flags.append("--no-spread")
+
+            flags_str = " ".join(flags)
             run_cmd(
                 f"cd {BASE_DIR} && python src/highlight.py "
-                f'"{downloaded_video}" "{highlight_query}" {args.highlight_count}'
+                f'"{downloaded_video}" "{highlight_query}" {args.highlight_count} {flags_str}'
             )
         else:
             print("[WARN] Could not find downloaded video for highlight extraction")

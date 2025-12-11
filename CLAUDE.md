@@ -13,7 +13,15 @@ Options:
 - `--cookies /path/to/cookies.txt` - For Instagram/TikTok gated content
 - `--no-mp4` - Skip MP4 montage generation
 - `--highlights` - Extract highlight video clips (auto-detect interesting moments)
-- `--highlight-count N` - Number of highlight clips (default 5)
+- `--highlight-count N` - Number of highlight clips (default 5, auto-scales for long videos)
+- `--highlight-duration N` - Target clip duration in seconds (default 20)
+- `--highlight-max N` - Maximum clip duration in seconds (default 30)
+- `--no-expand` - Disable segment expansion (use single scenes)
+- `--dynamic-count` - Force auto-scale highlight count based on video length
+- `--min-score N` - Filter highlights below quality threshold (0-1)
+- `--categories "action,funny,dramatic"` - Custom highlight categories
+- `--no-categorize` - Disable multi-category scoring
+- `--no-spread` - Disable temporal diversity optimization
 - `--draft --api-base http://127.0.0.1:3000` - Build CapCut draft via CapCutAPI
 
 ### Manual flow
@@ -44,6 +52,14 @@ Eye → Brain → Exports → (Optional) Draft
 - `capcut_ready/<vibe>/` - Sequential frames (0001.jpg, ...), shots.csv, capcut_manifest.json, click_track.wav, script_stub.md, zip archive
 
 **Highlight Detection (highlight.py)**: Multimodal scoring combining audio peaks (40%), scene changes (30%), and semantic similarity (30%). Uses ffmpeg+numpy for audio analysis (no librosa dependency).
+
+Key features:
+- **Smart expansion**: Merges adjacent scenes into 10-30s clips while audio stays active
+- **Multi-category scoring**: Scores each segment against 5 categories (action, funny, dramatic, key_moment, reaction) and assigns dominant category
+- **Dynamic count**: Auto-scales highlight count based on video duration (~1/min for 5-30min, ~1/1.5min for 30-60min, ~1/2min for 1hr+)
+- **Temporal diversity**: Ensures highlights spread across video timeline (auto-enabled for >5 min videos)
+- **Clustering**: Groups visually similar segments via KMeans to discover emergent themes
+- **Tagged output**: Filenames include category tag (e.g., `highlight_001_action.mp4`)
 
 ## Key Classes
 
