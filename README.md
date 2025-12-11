@@ -15,6 +15,8 @@ Eye + Brain MVP for collecting high-quality screenshots from online videos (YouT
 ├── src
 │   ├── ingest.py        # Eye – download, scene detect, embed into vector DB (supports cookies file)
 │   ├── search.py        # Brain UI – text search, export kits
+│   ├── highlight.py     # Optional – multimodal highlight detection and clip extraction
+│   ├── audio_analysis.py # Audio peak detection (ffmpeg + numpy)
 │   ├── capcut_draft.py  # Optional – send kits to CapCutAPI, build draft
 │   └── make_movie.py    # Optional – build quick MP4 montage from frames
 ├── downloads/           # auto-created; raw video files (git-ignored)
@@ -22,7 +24,8 @@ Eye + Brain MVP for collecting high-quality screenshots from online videos (YouT
 ├── chroma_db/           # auto-created; vector database (git-ignored)
 ├── organized_screenshots/ # ranked exports per vibe (git-ignored)
 ├── capcut_ready/        # CapCut kits (sequential assets, CSV, click track, zip; git-ignored)
-└── renders/             # optional MP4 outputs (git-ignored)
+├── renders/             # optional MP4 outputs (git-ignored)
+└── highlights/          # extracted highlight clips (git-ignored)
 ```
 
 ## Requirements
@@ -43,6 +46,7 @@ python run.py \
   --count 8 \
   --bpm 120 \
   [--cookies /path/to/cookies.txt] \
+  [--highlights --highlight-count 5] \
   [--draft --api-base http://127.0.0.1:3000]
 ```
 - Works with YouTube/TikTok/Instagram URLs (yt-dlp). Use `--cookies` for IG or gated content.
@@ -50,6 +54,7 @@ python run.py \
   - `organized_screenshots/<vibe>/` (ranked)
   - `capcut_ready/<vibe>/` (sequential kit + zip)
   - `renders/<vibe>.mp4` (montage) unless `--no-mp4`
+  - `highlights/<video_id>/` (highlight clips) if `--highlights` is set
   - Optional CapCut draft via CapCutAPI if `--draft` is set
 
 ## Manual flow (if you prefer prompts)
@@ -57,6 +62,7 @@ python run.py \
 python src/ingest.py      # paste URL (supports cookies via COOKIES_FILE env)
 python src/search.py      # type vibe, count, BPM
 python src/make_movie.py capcut_ready/<vibe>   # optional MP4
+python src/highlight.py <video> <query> <count>  # optional highlight extraction
 ```
 
 ## What you get per vibe
@@ -73,6 +79,28 @@ In `capcut_ready/<vibe>/`:
 
 Optional MP4 preview:
 - `python src/make_movie.py capcut_ready/<vibe>` → H.264 MP4 at 24 fps (default per-frame duration from manifest beat duration if present; otherwise 1.0s). Override with `--duration`; attach audio with `--audio`.
+
+## Highlight detection (auto-detect interesting moments)
+Extract the most interesting clips from a video using multimodal analysis:
+```bash
+python run.py --url "<URL>" --vibe "action" --highlights --highlight-count 5
+# or standalone:
+python src/highlight.py downloads/<video>.mp4 "exciting action" 5
+```
+
+How it works:
+- **Audio peaks (40%)**: Detects loud/energetic moments using ffmpeg + numpy
+- **Scene changes (30%)**: Quick cuts often indicate action/transitions
+- **Semantic similarity (30%)**: Matches frames to your query via SigLIP
+
+Output in `highlights/<video_id>/`:
+- `highlight_001.mp4`, `highlight_002.mp4`, ... (extracted clips)
+- `highlights_manifest.json` (metadata with scores and timestamps)
+
+Options:
+- `--highlights`: Enable highlight extraction in the pipeline
+- `--highlight-count N`: Number of clips to extract (default 5)
+- `--highlight-query "text"`: Custom query (defaults to `--vibe`)
 
 ## Importing into CapCut (manual, safest)
 1) Open CapCut.
@@ -101,7 +129,7 @@ See `docs/CAPCUT_API_USAGE.md` for endpoint assumptions and troubleshooting.
 - Ingestion: 720p; PySceneDetect threshold ~27; mid-scene frames.
 - BPM: default 120 (prompt overridable).
 - MP4: H.264, 24 fps, per-frame duration from manifest or 1.0s fallback.
-- Data stays local: heavy folders are .gitignored (`downloads/`, `frames/`, `chroma_db/`, `organized_screenshots/`, `capcut_ready/`, `renders/`).
+- Data stays local: heavy folders are .gitignored (`downloads/`, `frames/`, `chroma_db/`, `organized_screenshots/`, `capcut_ready/`, `renders/`, `highlights/`).
 
 ## Troubleshooting
 - No matches or few results: broaden vibe text or request more results.
