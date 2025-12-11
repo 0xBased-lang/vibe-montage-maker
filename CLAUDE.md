@@ -22,6 +22,7 @@ Options:
 - `--categories "action,funny,dramatic"` - Custom highlight categories
 - `--no-categorize` - Disable multi-category scoring
 - `--no-spread` - Disable temporal diversity optimization
+- `--no-clustering` - Disable KMeans embedding clustering
 - `--draft --api-base http://127.0.0.1:3000` - Build CapCut draft via CapCutAPI
 
 ### Manual flow

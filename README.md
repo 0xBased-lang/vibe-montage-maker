@@ -99,7 +99,21 @@ How it works:
 
 Output in `highlights/<video_id>/`:
 - `highlight_001_action.mp4`, `highlight_002_dramatic.mp4`, ... (category-tagged clips)
-- `highlights_manifest.json` (metadata with scores, categories, clusters, and diversity info)
+- `highlights_manifest.json` with rich metadata:
+  ```json
+  {
+    "video_duration": 7387.1,
+    "extraction_settings": { "categories": [...], "diversity_enabled": true },
+    "highlights": [{
+      "clip_file": "highlight_001_action.mp4",
+      "dominant_category": "action",
+      "category_scores": { "action": 0.52, "funny": 0.50, ... },
+      "cluster_id": 1, "cluster_theme": "action",
+      "diversity_score": 0.95, "temporal_position": 0.98
+    }],
+    "summary": { "by_category": { "action": { "count": 31 }, ... } }
+  }
+  ```
 
 Options:
 - `--highlights`: Enable highlight extraction in the pipeline
@@ -113,6 +127,7 @@ Options:
 - `--categories "action,funny,rage"`: Custom category queries
 - `--no-categorize`: Disable multi-category scoring
 - `--no-spread`: Disable temporal diversity optimization
+- `--no-clustering`: Disable KMeans embedding clustering
 
 ## Importing into CapCut (manual, safest)
 1) Open CapCut.
