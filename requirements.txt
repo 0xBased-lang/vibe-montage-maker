@@ -8,3 +8,4 @@ chromadb
 numpy
 requests
 moviepy
+# Note: Audio analysis uses ffmpeg + numpy (no librosa needed)

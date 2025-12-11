@@ -6,6 +6,7 @@ organized_screenshots/
 chroma_db/
 capcut_ready/
 renders/
+highlights/
 test_write.txt
 *.log
 *.webm
